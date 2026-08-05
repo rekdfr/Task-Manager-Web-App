@@ -19,6 +19,10 @@ h1{
     margin-bottom:25px;
 }
 
+h2{
+    margin-bottom:15px;
+}
+
 .card{
     background:white;
     padding:20px;
@@ -73,4 +77,24 @@ button:hover{
 
 .delete:hover{
     background:#a71d2a;
+}
+
+.logout{
+    background:#6c757d;
+    margin-top:20px;
+}
+
+.logout:hover{
+    background:#5a6268;
+}
+
+.toggle-text{
+    margin-top:12px;
+    text-align:center;
+    font-size:14px;
+}
+
+.toggle-text a{
+    color:#007bff;
+    text-decoration:none;
 }
