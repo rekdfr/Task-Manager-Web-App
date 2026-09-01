@@ -2,6 +2,37 @@
 
 A full-stack task management application with user authentication. The frontend is a React application built with Vite; the backend is an existing Flask REST API.
 
+## Features
+
+- **User authentication** — Register and log in to obtain a token-protected session
+- **Task management** — Create, list, retrieve, and delete tasks
+- **Token-based authorization** — Protected API endpoints require a valid auth token
+- **In-memory data store** — Simple modular design with no external database required
+- **Hot-reload dev server** — Vite dev server with API proxying to the Flask backend
+
+## Project Structure
+
+```
+.
+├── main.py            # Flask REST API backend
+├── requirements.txt   # Python dependencies
+├── package.json       # Node.js dependencies & scripts
+├── vite.config.js     # Vite configuration
+├── index.html         # App entry HTML
+└── src/               # React frontend
+    ├── main.jsx       # React entry point
+    ├── App.jsx        # Root component & routing
+    ├── App.css        # Global styles
+    ├── components/    # UI components
+    │   ├── Login.jsx
+    │   ├── Register.jsx
+    │   ├── Navbar.jsx
+    │   ├── TaskForm.jsx
+    │   └── TaskList.jsx
+    └── services/
+        └── api.js     # API client & auth helpers
+```
+
 ## Architecture
 
 ```
