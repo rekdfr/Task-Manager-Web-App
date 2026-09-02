@@ -141,3 +141,7 @@ A green **SUCCESS** means checkout, dependency installation, and the Vite produc
 
 
 test sept2 . part 2 wwwwwwww
+
+HI , THIS IS DEVOPS LAB
+THIS IS TO UPDATE THE README 
+PUSH TO COLLAB BRANCH
