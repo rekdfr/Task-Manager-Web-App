@@ -77,4 +77,4 @@ api.add_resource(Login, '/login')
 api.add_resource(Task, '/task', '/task/<int:task_id>')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(host="0.0.0.0",port=5000)

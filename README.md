@@ -147,3 +147,14 @@ THIS IS TO UPDATE THE README
 PUSH TO COLLAB BRANCH 
 
 jenkins
+### DOCKER CONFIGURATION 
+
+there are 2 images , one for backend and frontend each 
+
+Use:
+``` bash
+docker build -t task-frontend -f Dockerfile.frontend .
+docker build -t task-backend -f Dockerfile.backend .
+docker run -d -p 5000:5000 --name backend task-backend
+docker run -d -p 5173:5173 --name frontend task-frontend
+```
