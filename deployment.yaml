@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name : 33351-taskmanager-deployment
+
+spec:
+  replicas: 2
+  selector: 
+    matchLabels:
+      app: task-manager
+
+  template:
+    metadata:
+      labels:
+        app: task-manager
+
+    spec:
+      containers:
+        - name: task-backend
+          image: task-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000
+        - name: task-frontend
+          image: task-frontend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5173
+

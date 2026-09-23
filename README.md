@@ -147,7 +147,9 @@ THIS IS TO UPDATE THE README
 PUSH TO COLLAB BRANCH 
 
 jenkins
-### DOCKER CONFIGURATION 
+
+
+## DOCKER CONFIGURATION 
 
 there are 2 images , one for backend and frontend each 
 
