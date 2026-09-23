@@ -19,6 +19,10 @@ A full-stack task management application with user authentication. The frontend 
 ├── package.json       # Node.js dependencies & scripts
 ├── vite.config.js     # Vite configuration
 ├── index.html         # App entry HTML
+├── Dockerfile.frontend   # Frontend container image
+├── Dockerfile.backend    # Backend container image
+├── deployment.yaml    # Kubernetes Deployment manifest
+├── service.yaml       # Kubernetes Service manifest
 └── src/               # React frontend
     ├── main.jsx       # React entry point
     ├── App.jsx        # Root component & routing
@@ -159,4 +163,109 @@ docker build -t task-frontend -f Dockerfile.frontend .
 docker build -t task-backend -f Dockerfile.backend .
 docker run -d -p 5000:5000 --name backend task-backend
 docker run -d -p 5173:5173 --name frontend task-frontend
+```
+
+## KUBERNETES / MINIKUBE DEPLOYMENT
+
+Deploys the two container images as a single pod (backend on port 5000, frontend on port 5173) managed by a Deployment, exposed via a NodePort Service.
+
+### Objects
+
+| Object     | File            | Name                              | Key details                          |
+|------------|-----------------|-----------------------------------|--------------------------------------|
+| Deployment | `deployment.yaml` | `33351-taskmanager-deployment`  | 2 replicas, containers `task-backend` & `task-frontend`, `imagePullPolicy: Never` |
+| Service    | `service.yaml`    | `task-manager-service`          | NodePort, frontend `5173`, backend `5000` |
+
+### Setup
+
+``` bash
+# 1. Start minikube
+minikube start
+minikube status
+
+# 2. Build the images
+docker build -t task-backend -f Dockerfile.backend .
+docker build -t task-frontend -f Dockerfile.frontend .
+
+# 3. Load the images into minikube (required because imagePullPolicy: Never)
+minikube image load task-backend:latest
+minikube image load task-frontend:latest
+minikube image ls | grep task
+```
+
+### Applying the manifests
+
+``` bash
+# 4. Create the deployment from YAML
+kubectl apply -f deployment.yaml
+
+# 5. Create the service from YAML
+kubectl apply -f service.yaml
+```
+
+### Inspecting resources
+
+``` bash
+kubectl get deployments
+kubectl get pods
+kubectl get replicasets
+kubectl get services          # or: kubectl get svc
+kubectl get all               # everything at once
+kubectl get nodes
+
+# Detailed info
+kubectl describe deployment 33351-taskmanager-deployment
+kubectl describe pod <pod-name>
+kubectl describe svc task-manager-service
+
+# Logs from a pod (contains both containers)
+kubectl logs <pod-name>
+
+# Rollout progress
+kubectl rollout status deployment/33351-taskmanager-deployment
+kubectl rollout history deployment/33351-taskmanager-deployment
+```
+
+### Accessing the app
+
+``` bash
+# Open automatically in the browser
+minikube service task-manager-service
+
+# Or print the URLs
+minikube service task-manager-service --url
+```
+
+Frontend: `http://192.168.49.2:30723` · Backend: `http://192.168.49.2:32478` (minikube IP `192.168.49.2`, NodePorts as shown by `kubectl get svc`).
+
+### Scaling
+
+``` bash
+kubectl scale deployment 33351-taskmanager-deployment --replicas=4   # scale up
+kubectl scale deployment 33351-taskmanager-deployment --replicas=1   # scale down
+kubectl scale deployment 33351-taskmanager-deployment --replicas=0   # stop all pods
+
+# Confirm
+kubectl get pods
+kubectl get deployments
+```
+
+A common tweak: change `replicas` in `deployment.yaml`, then `kubectl apply -f deployment.yaml` again.
+
+### Troubleshooting
+
+``` bash
+# Fix image pull issues by forcing local images (imagePullPolicy: Never)
+kubectl patch deployment 33351-taskmanager-deployment -p '{"spec":{"template":{"spec":{"containers":[{"name":"task-backend","imagePullPolicy":"Never"},{"name":"task-frontend","imagePullPolicy":"Never"}]}}}}'
+
+# Inspect events / errors
+kubectl get events --sort-by=.metadata.creationTimestamp
+```
+
+### Cleanup
+
+``` bash
+kubectl delete -f service.yaml
+kubectl delete -f deployment.yaml
+minikube stop
 ```
