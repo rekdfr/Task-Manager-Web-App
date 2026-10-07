@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        skipDefaultCheckout(true)
+    }
+
     triggers {
         pollSCM('H/5 * * * *')
     }
@@ -9,7 +13,9 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                checkout scm
+                retry(3) {
+                    checkout scm
+                }
             }
         }
 
