@@ -240,7 +240,7 @@ npm run preview      # preview production bundle locally
 
 ## 🐳 Docker
 
-Two isolated, reproducible images — one per tier.
+Two isolated, reproducible images.
 
 | Image | Dockerfile | Base | Port | Command |
 | :--- | :--- | :--- | :--: | :--- |

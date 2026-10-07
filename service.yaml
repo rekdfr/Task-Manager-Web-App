@@ -11,12 +11,12 @@ spec:
     app: task-manager
 
   ports:
-    - name: frontend
+    - name: 33351-frontend
       protocol: TCP
       port: 5173
       targetPort: 5173
 
-    - name: backend
+    - name: 33351-backend
       protocol: TCP
       port: 5000
       targetPort: 5000

@@ -17,13 +17,13 @@ spec:
 
     spec:
       containers:
-        - name: task-backend
-          image: task-backend:latest
+        - name: 33351-backend
+          image: 33351-backend:latest
           imagePullPolicy: Never
           ports:
             - containerPort: 5000
-        - name: task-frontend
-          image: task-frontend:latest
+        - name: 33351-frontend
+          image: 33351-frontend:latest
           imagePullPolicy: Never
           ports:
             - containerPort: 5173
