@@ -82,31 +82,35 @@ Code → Build (Vite) → Test (node test.js) → Containerize (Docker) → Orch
 
 ```mermaid
 flowchart LR
-    subgraph Client
-        U[Browser]
+    subgraph Client["Client"]
+        U["Browser"]
     end
-    subgraph Frontend["Frontend — React + Vite :5173"]
-        R[React SPA\nApp.jsx]
-        C[Components\nLogin/Register/TaskForm/TaskList/Navbar]
-        S[api.js\nfetch + localStorage token]
-        V[Vite Build → dist/]
+    subgraph Frontend["Frontend - React plus Vite :5173"]
+        FE_R["React SPA<br/>App.jsx"]
+        FE_C["Components<br/>Login, Register, TaskForm, TaskList, Navbar"]
+        FE_S["api.js<br/>fetch plus localStorage token"]
+        FE_V["Vite Build to dist"]
     end
-    subgraph Backend["Backend — Flask :5000"]
-        F[Flask + Flask-RESTful]
-        CORS[CORS *]
-        M[(In-Memory\nusers[] / tasks[] / tokens{})]
+    subgraph Backend["Backend - Flask :5000"]
+        BE_F["Flask plus Flask-RESTful"]
+        BE_CORS["CORS open"]
+        BE_M[("In-Memory<br/>users, tasks, tokens")]
     end
     subgraph DevOps["DevOps"]
-        D1[Docker\n33351-backend & 33351-frontend]
-        K8S[K8s\nDeployment x2 + NodePort Service]
-        J[Jenkins\nDeclarative Pipeline\npollSCM every 5m]
+        D1["Docker<br/>33351-backend and 33351-frontend"]
+        K8S["K8s<br/>Deployment x2 plus NodePort Service"]
+        JJ["Jenkins<br/>Declarative Pipeline<br/>pollSCM every 5m"]
     end
 
-    U -->|HTTP :5173| R --> C
-    C --> S -->|fetch Authorization: <token>| F --> M
-    F --> CORS
-    V --> D1 --> K8S
-    R -->|npm install/build/test| J
+    U -->|"HTTP :5173"| FE_R
+    FE_R --> FE_C
+    FE_C --> FE_S
+    FE_S -->|"fetch with Authorization token"| BE_F
+    BE_F --> BE_M
+    BE_F --> BE_CORS
+    FE_V --> D1
+    D1 --> K8S
+    FE_R -->|"npm install, build, test"| JJ
 ```
 
 **Request flow:**

@@ -1,10 +1,23 @@
-from flask import Flask, request
+from flask import Flask, request, Response
 from flask_restful import Resource, Api
 from flask_cors import CORS
+from prometheus_client import Counter, generate_latest, CONTENT_TYPE_LATEST
 import secrets
 
 app = Flask(__name__)
 CORS(app)
+
+# Prometheus: HTTP request counter
+httpRequestCounter = Counter('task_manager_http_requests_total', 'Total HTTP requests received')
+
+@app.before_request
+def count_http_requests():
+    if request.path != '/metrics':
+        httpRequestCounter.inc()
+
+@app.route('/metrics')
+def metrics():
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 api = Api(app)
 tasks = []
