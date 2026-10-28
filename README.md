@@ -50,6 +50,7 @@ Code → Build (Vite) → Test (node test.js) → Containerize (Docker) → Orch
 - [Deep Dive — Source Walkthrough](#-deep-dive--source-walkthrough)
 - [Docker](#-docker)
 - [Kubernetes — Minikube](#️-kubernetes--minikube)
+- [Monitoring — Prometheus & Grafana](#-monitoring--prometheus--grafana)
 - [CI/CD — Jenkins](#-cicd--jenkins)
 - [Runtime Behavior & Data Model](#-runtime-behavior--data-model)
 - [Configuration](#-configuration)
@@ -74,6 +75,7 @@ Code → Build (Vite) → Test (node test.js) → Containerize (Docker) → Orch
 | 🐍 **Backend** | Single-file Flask-RESTful | `CORS(app)` open to all origins; `app.run(host="0.0.0.0", port=5000)`; no `if` for env, no gunicorn |
 | 🐳 **Docker** | Two images | `33351-backend:latest` (python:3.12 + `main.py`) and `33351-frontend:latest` (node:20 + `npm run dev -- --host 0.0.0.0`) — names matter for K8s |
 | ☸️ **K8s** | Deployment + NodePort | `33351-taskmanager-deployment`, `replicas:2`, 2 containers/pod, `imagePullPolicy: Never`, Service `task-manager-service` exposes `5000` & `5173` |
+| 📈 **Monitoring** | Prometheus + Grafana | Flask `/metrics` (`prometheus_client`) scraped every 5s → Prometheus (`:9090`) → Grafana dashboard (`:30031`, admin/admin) with auto-provisioned Prometheus datasource |
 | 🤖 **CI** | Declarative `Jenkinsfile` | 4 stages: `Checkout` → `Install Dependencies` (`npm install`) → `Build` (`npm run build`) → `Automated Testing` (`npm test` → `node test.js`) + `pollSCM('H/5 * * * *')` |
 
 ---
@@ -150,6 +152,8 @@ GitHub push → Jenkins pollSCM (H/5) → checkout scm → npm install → npm r
 | | npm scripts | `dev` / `build` / `preview` / `test` | `package.json:6-11` |
 | **DevOps** | Docker | 2 Dockerfiles | `Dockerfile.backend`, `Dockerfile.frontend` |
 | | Kubernetes | Minikube, `apps/v1` Deployment + `v1` NodePort Service | `deployment.yaml`, `service.yaml` |
+| | Prometheus | `prom/prometheus:latest`, scrapes `task-manager-service:5000/metrics` every 5s | `prometheus.yml`, `prometheus-deployment.yaml`, `prometheus-service.yaml` |
+| | Grafana | `grafana/grafana:latest`, NodePort 30031, admin/admin, auto-provisioned Prometheus datasource | `grafana-datasources.yaml`, `grafana-deployment.yaml`, `grafana-service.yaml` |
 | | Jenkins | Declarative pipeline | `Jenkinsfile` |
 
 ---
@@ -167,6 +171,12 @@ GitHub push → Jenkins pollSCM (H/5) → checkout scm → npm install → npm r
 ├── Dockerfile.frontend     # 7 lines — node:20, npm install, COPY ., EXPOSE 5173, CMD npm run dev -- --host 0.0.0.0
 ├── deployment.yaml         # 30 lines — Deployment 33351-taskmanager-deployment, replicas:2, 2 containers, imagePullPolicy:Never
 ├── service.yaml            # 22 lines — NodePort task-manager-service, ports 5173 & 5000 → selector app:task-manager
+├── prometheus.yml          # scrape task-manager-service:5000 every 5s
+├── prometheus-deployment.yaml  # Deployment prometheus-deployment, mounts prometheus-config ConfigMap
+├── prometheus-service.yaml # NodePort prometheus-service :9090
+├── grafana-datasources.yaml# ConfigMap — auto-provisions Prometheus datasource → http://prometheus-service:9090
+├── grafana-deployment.yaml # Deployment grafana-deployment, mounts datasources into /etc/grafana/provisioning/datasources
+├── grafana-service.yaml    # NodePort grafana-service, 3000 → nodePort 30031
 ├── Jenkinsfile             # 34 lines — declarative pipeline, pollSCM H/5, 4 stages (Checkout/Install/Build/Test)
 ├── test.js                 # 27 lines — fs.existsSync checks for 5 files (package.json, index.html, vite.config.js, src/main.jsx, src/App.jsx)
 ├── .dockerignore           # 5 lines — node_modules, venv, __pycache__, .git
@@ -199,6 +209,8 @@ GitHub push → Jenkins pollSCM (H/5) → checkout scm → npm install → npm r
 | `src/main.jsx` | React mount point | `index.html` |
 | `vite.config.js` | Build tool config | `vite` CLI |
 | `deployment.yaml` + `service.yaml` | K8s desired state | `kubectl apply -f` |
+| `prometheus.yml` + `prometheus-*.yaml` | Metrics collection | `kubectl apply -f` → Prometheus scrapes `/metrics` |
+| `grafana-datasources.yaml` + `grafana-*.yaml` | Dashboards / PromQL UI | `kubectl apply -f` → Grafana `:30031` |
 | `Jenkinsfile` | CI definition | Jenkins controller |
 | `test.js` | Minimal file-existence gate | `npm test` in Jenkins |
 
@@ -544,6 +556,146 @@ kubectl delete -f deployment.yaml
 kubectl delete pod --all  # if needed
 minikube stop
 # minikube delete  # full reset
+```
+
+---
+
+## 📈 Monitoring — Prometheus & Grafana
+
+The backend exposes Prometheus metrics at `GET /metrics` (counter `task_manager_http_requests_total`, incremented on every request except `/metrics`). Prometheus scrapes it every 5s; Grafana is pre-provisioned with a Prometheus datasource so you can run PromQL queries immediately.
+
+### Pipeline
+
+```
+Flask /metrics (prometheus_client) → Prometheus :9090 (scrape task-manager-service:5000, 5s)
+  → Grafana :30031 (datasource provisioned via ConfigMap) → Explore / Dashboards (PromQL)
+```
+
+### Objects
+
+| Object | File | Name | Spec |
+| :--- | :--- | :--- | :--- |
+| **ConfigMap** | `prometheus.yml` → `prometheus-config` | `prometheus-config` | `scrape_interval: 5s`, job `task-manager` → `task-manager-service:5000` |
+| **Deployment** | `prometheus-deployment.yaml` | `prometheus-deployment` | `prom/prometheus:latest`, `:9090`, mounts `prometheus-config` at `/etc/prometheus` |
+| **Service** | `prometheus-service.yaml` | `prometheus-service` | `NodePort`, `9090 → 9090` |
+| **ConfigMap** | `grafana-datasources.yaml` | `grafana-datasources` | Provisions datasource `Prometheus` → `http://prometheus-service:9090`, `isDefault: true` |
+| **Deployment** | `grafana-deployment.yaml` | `grafana-deployment` | `grafana/grafana:latest`, `:3000`, admin/admin, mounts datasources at `/etc/grafana/provisioning/datasources` |
+| **Service** | `grafana-service.yaml` | `grafana-service` | `NodePort`, `3000 → nodePort 30031` |
+
+> Note: the Prometheus ConfigMap must be created from the file before the Deployment can mount it:
+> `kubectl create configmap prometheus-config --from-file=prometheus.yml`
+
+### Deploy
+
+```bash
+# Prometheus (ConfigMap first, then Deployment + Service)
+kubectl create configmap prometheus-config --from-file=prometheus.yml
+kubectl apply -f prometheus-deployment.yaml -f prometheus-service.yaml
+
+# Grafana (datasource ConfigMap, then Deployment + Service)
+kubectl apply -f grafana-datasources.yaml -f grafana-deployment.yaml -f grafana-service.yaml
+
+# Verify
+kubectl get configmaps
+kubectl get deployments
+kubectl get pods -l 'app in (prometheus,grafana)'
+kubectl get svc | grep -E 'prometheus|grafana'
+kubectl rollout status deployment/prometheus-deployment
+kubectl rollout status deployment/grafana-deployment
+```
+
+### Access
+
+```bash
+# Prometheus UI
+minikube service prometheus-service --url
+# → http://192.168.49.2:<NodePort>  (UI at /, PromQL at /graph)
+
+# Grafana
+minikube service grafana-service --url
+# → http://192.168.49.2:30031  (fixed NodePort — login admin / admin)
+```
+
+Direct with Minikube IP `192.168.49.2` (check `minikube ip`):
+
+- Prometheus → `http://192.168.49.2:3xxxx` (dynamic NodePort — `kubectl get svc prometheus-service`)
+- Grafana    → `http://192.168.49.2:30031`
+
+### Verify the scrape
+
+```bash
+# Backend metric endpoint (via app NodePort or in-cluster)
+curl http://192.168.49.2:32478/metrics | grep task_manager
+# → task_manager_http_requests_total 12.0
+
+# Prometheus targets page — task-manager job must be UP
+kubectl port-forward svc/prometheus-service 9090:9090 &
+curl -s http://localhost:9090/api/v1/targets | grep -o '"health":"[a-z]*"'
+curl -s 'http://localhost:9090/api/v1/query?query=up' 
+
+# Prometheus ready
+curl -s http://localhost:9090/-/ready
+```
+
+### Run PromQL queries
+
+In **Prometheus UI** (`/graph`) or **Grafana → Explore** (datasource: Prometheus):
+
+```promql
+# Raw counter — total HTTP requests since pod start
+task_manager_http_requests_total
+
+# Request rate per second (1m window — use for graphs)
+rate(task_manager_http_requests_total[1m])
+
+# Increase over the last 5m
+increase(task_manager_http_requests_total[5m])
+
+# Scrape health — 1 = Prometheus is reaching the backend
+up{job="task-manager"}
+
+# Per-instance split (if you scale the backend replicas)
+sum by (pod) (rate(task_manager_http_requests_total[1m]))
+```
+
+Via `curl` against Prometheus API:
+
+```bash
+curl -sG http://localhost:9090/api/v1/query --data-urlencode 'query=rate(task_manager_http_requests_total[1m])'
+curl -sG http://localhost:9090/api/v1/query_range \
+  --data-urlencode 'query=task_manager_http_requests_total' \
+  --data-urlencode 'start='$(date -d '-10 min' +%s) \
+  --data-urlencode 'end='$(date +%s) \
+  --data-urlencode 'step=15'
+```
+
+### Grafana first dashboard (manual, ~1 min)
+
+1. Login `http://<minikube-ip>:30031` → `admin` / `admin` (change password when prompted, or Skip).
+2. **Explore** (compass icon) → datasource **Prometheus** (already provisioned — no config needed).
+3. Enter `rate(task_manager_http_requests_total[1m])` → **Run query** → time-series graph.
+4. Optional: **Dashboards → New dashboard → Add visualization** → paste the same query → save as "Task Manager HTTP RPS".
+
+To generate traffic for the graph:
+
+```bash
+# Login + hammer the API so the counter moves
+TOKEN=$(curl -s -X POST http://192.168.49.2:32478/login \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"admin","password":"admin"}' | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+for i in $(seq 1 50); do
+  curl -s -X POST http://192.168.49.2:32478/task \
+    -H "Authorization: $TOKEN" -H 'Content-Type: application/json' \
+    -d "{\"title\":\"t$i\",\"description\":\"d$i\"}" > /dev/null
+done
+```
+
+### Cleanup monitoring only
+
+```bash
+kubectl delete -f grafana-service.yaml -f grafana-deployment.yaml -f grafana-datasources.yaml
+kubectl delete -f prometheus-service.yaml -f prometheus-deployment.yaml
+kubectl delete configmap prometheus-config
 ```
 
 ---
